@@ -1,5 +1,5 @@
-import { supabase } from "@/lib/supabase"
-import type { Database } from "@/types/database"
+import { supabase } from "@/lib/supabaseClient"
+import type { Database } from "@/lib/types/database"
 
 type Order = Database["public"]["Tables"]["orders"]["Row"]
 type OrderInsert = Database["public"]["Tables"]["orders"]["Insert"]
