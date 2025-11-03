@@ -1,6 +1,7 @@
+// src/components/gallery-client.tsx
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { Search, Filter, Grid, List, Heart, ShoppingCart, Star } from "lucide-react"
@@ -11,157 +12,31 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
-import { Checkbox } from "@radix-ui/react-checkbox";
-import type { CheckedState } from "@radix-ui/react-checkbox"; // ✅ Add this
+import { Checkbox } from "@radix-ui/react-checkbox"
+import type { CheckedState } from "@radix-ui/react-checkbox"
 
+import { supabase } from "@/lib/supabaseClient"
+import { ProductService } from "@/lib/services/products"
 
-// Sample product data - replace with actual data from Supabase
-const products = [
-  {
-    id: 1,
-    name: "Luxury Persian Carpet",
-    description: "Hand-woven premium Persian carpet with intricate traditional designs",
-    price: 120000,
-    salePrice: null,
-    image: "/product-1.jpg",
-    category: "Carpets",
-    subcategory: "Persian",
-    size: "8x10 ft",
-    material: "Wool",
-    color: "Red",
-    isNew: true,
-    isSale: false,
-    inStock: true,
-    rating: 4.8,
-    reviews: 24,
-  },
-  {
-    id: 2,
-    name: "Modern Geometric Rug",
-    description: "Contemporary geometric pattern rug perfect for modern homes",
-    price: 85000,
-    salePrice: 65000,
-    image: "/product-2.jpg",
-    category: "Carpets",
-    subcategory: "Modern",
-    size: "6x9 ft",
-    material: "Synthetic",
-    color: "Blue",
-    isNew: false,
-    isSale: true,
-    inStock: true,
-    rating: 4.5,
-    reviews: 18,
-  },
-  {
-    id: 3,
-    name: "Outdoor Event Canopy",
-    description: "Durable waterproof canopy perfect for outdoor events and gatherings",
-    price: 150000,
-    salePrice: null,
-    image: "/product-3.jpg",
-    category: "Canopies",
-    subcategory: "Event",
-    size: "10x10 ft",
-    material: "Polyester",
-    color: "White",
-    isNew: true,
-    isSale: false,
-    inStock: true,
-    rating: 4.7,
-    reviews: 12,
-  },
-  {
-    id: 4,
-    name: "Premium Door Mat",
-    description: "High-quality entrance mat with non-slip backing for safety",
-    price: 15000,
-    salePrice: null,
-    image: "/product-4.jpg",
-    category: "Mats",
-    subcategory: "Door",
-    size: "2x3 ft",
-    material: "Rubber",
-    color: "Brown",
-    isNew: false,
-    isSale: false,
-    inStock: true,
-    rating: 4.3,
-    reviews: 31,
-  },
-  {
-    id: 5,
-    name: "Traditional Turkish Carpet",
-    description: "Authentic Turkish carpet with beautiful traditional patterns",
-    price: 95000,
-    salePrice: null,
-    image: "/product-5.png",
-    category: "Carpets",
-    subcategory: "Turkish",
-    size: "5x8 ft",
-    material: "Wool",
-    color: "Beige",
-    isNew: false,
-    isSale: false,
-    inStock: false,
-    rating: 4.6,
-    reviews: 15,
-  },
-  {
-    id: 6,
-    name: "Garden Party Canopy",
-    description: "Elegant canopy perfect for garden parties and outdoor dining",
-    price: 180000,
-    salePrice: 140000,
-    image: "/product-6.png",
-    category: "Canopies",
-    subcategory: "Garden",
-    size: "12x12 ft",
-    material: "Canvas",
-    color: "Green",
-    isNew: false,
-    isSale: true,
-    inStock: true,
-    rating: 4.9,
-    reviews: 8,
-  },
-  {
-    id: 7,
-    name: "Kitchen Floor Mat",
-    description: "Anti-fatigue kitchen mat with cushioned support",
-    price: 25000,
-    salePrice: null,
-    image: "/product-7.png",
-    category: "Mats",
-    subcategory: "Kitchen",
-    size: "2x4 ft",
-    material: "Foam",
-    color: "Gray",
-    isNew: true,
-    isSale: false,
-    inStock: true,
-    rating: 4.4,
-    reviews: 22,
-  },
-  {
-    id: 8,
-    name: "Vintage Oriental Rug",
-    description: "Beautiful vintage-style oriental rug with aged patina",
-    price: 110000,
-    salePrice: null,
-    image: "/product-8.png",
-    category: "Carpets",
-    subcategory: "Oriental",
-    size: "7x10 ft",
-    material: "Wool",
-    color: "Multi",
-    isNew: false,
-    isSale: false,
-    inStock: true,
-    rating: 4.7,
-    reviews: 19,
-  },
-]
+// Define your product type (adjust fields based on your DB)
+type Product = {
+  id: number | string
+  name: string
+  description: string
+  price: number
+  sale_price: number | null
+  image_url: string
+  category: string
+  subcategory: string
+  size: string
+  material: string
+  color: string
+  isNew: boolean
+  isSale: boolean
+  inStock: boolean
+  rating: number
+  reviews: number
+}
 
 const categories = ["All", "Carpets", "Canopies", "Mats"]
 const subcategories = ["All", "Persian", "Modern", "Turkish", "Oriental", "Event", "Garden", "Door", "Kitchen"]
@@ -177,12 +52,16 @@ const sortOptions = [
 ]
 
 export default function GalleryClient() {
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [selectedSubcategory, setSelectedSubcategory] = useState("All")
   const [selectedMaterial, setSelectedMaterial] = useState("All")
   const [selectedColor, setSelectedColor] = useState("All")
-  const [priceRange, setPriceRange] = useState([0, 200000])
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 200000])
   const [sortBy, setSortBy] = useState("featured")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [showFilters, setShowFilters] = useState(false)
@@ -190,13 +69,11 @@ export default function GalleryClient() {
   const [showOnlySale, setShowOnlySale] = useState(false)
 
   const handleChecked =
-  (setter: React.Dispatch<React.SetStateAction<boolean>>) =>
-  (checked: CheckedState) => {
-    setter(checked === true);
-  };
+    (setter: React.Dispatch<React.SetStateAction<boolean>>) =>
+    (checked: CheckedState) => {
+      setter(checked === true)
+    }
 
-
-  // Format price in Naira
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("en-NG", {
       style: "currency",
@@ -205,9 +82,45 @@ export default function GalleryClient() {
     }).format(price)
   }
 
-  // Filter and sort products
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setLoading(true)
+      const { data, error: err } = await supabase
+        .from<"products", Product>("products")
+        .select(`
+          id,
+          name,
+          description,
+          price,
+          sale_price,
+          image_url,
+          category,
+          subcategory,
+          size,
+          material,
+          color,
+          isNew,
+          isSale,
+          inStock,
+          rating,
+          reviews
+        `)
+        .order("id", { ascending: true })
+
+      if (err) {
+        console.error("Error fetching products:", err)
+        setError(err.message)
+      } else if (data) {
+        setProducts(data)
+      }
+      setLoading(false)
+    }
+
+    fetchProducts()
+  }, [])
+
   const filteredAndSortedProducts = useMemo(() => {
-    const filtered = products.filter((product) => {
+    let filtered = products.filter((product) => {
       const matchesSearch =
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         product.description.toLowerCase().includes(searchTerm.toLowerCase())
@@ -215,7 +128,7 @@ export default function GalleryClient() {
       const matchesSubcategory = selectedSubcategory === "All" || product.subcategory === selectedSubcategory
       const matchesMaterial = selectedMaterial === "All" || product.material === selectedMaterial
       const matchesColor = selectedColor === "All" || product.color === selectedColor
-      const currentPrice = product.salePrice || product.price
+      const currentPrice = product.sale_price ?? product.price
       const matchesPrice = currentPrice >= priceRange[0] && currentPrice <= priceRange[1]
       const matchesStock = !showOnlyInStock || product.inStock
       const matchesSale = !showOnlySale || product.isSale
@@ -232,19 +145,18 @@ export default function GalleryClient() {
       )
     })
 
-    // Sort products
     filtered.sort((a, b) => {
       switch (sortBy) {
         case "price-low":
-          return (a.salePrice || a.price) - (b.salePrice || b.price)
+          return (a.sale_price ?? a.price) - (b.sale_price ?? b.price)
         case "price-high":
-          return (b.salePrice || b.price) - (a.salePrice || a.price)
+          return (b.sale_price ?? b.price) - (a.sale_price ?? a.price)
         case "name":
           return a.name.localeCompare(b.name)
         case "rating":
           return b.rating - a.rating
         case "newest":
-          return b.isNew ? 1 : -1
+          return (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0)
         default:
           return 0
       }
@@ -252,6 +164,7 @@ export default function GalleryClient() {
 
     return filtered
   }, [
+    products,
     searchTerm,
     selectedCategory,
     selectedSubcategory,
@@ -262,6 +175,13 @@ export default function GalleryClient() {
     showOnlyInStock,
     showOnlySale,
   ])
+
+  if (loading) {
+    return <p className="text-center py-20">Loading products…</p>
+  }
+  if (error) {
+    return <p className="text-red-600 text-center py-20">Error: {error}</p>
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -301,7 +221,7 @@ export default function GalleryClient() {
                 </Button>
               </div>
 
-              {/* Search */}
+              {/* … All filter controls … */}
               <div className="mb-6">
                 <label className="block text-sm font-medium mb-2">Search</label>
                 <div className="relative">
@@ -315,13 +235,11 @@ export default function GalleryClient() {
                 </div>
               </div>
 
-              {/* Category Filter */}
+              {/* Category */}
               <div className="mb-6">
                 <label className="block text-sm font-medium mb-2">Category</label>
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {categories.map((category) => (
                       <SelectItem key={category} value={category}>
@@ -332,13 +250,11 @@ export default function GalleryClient() {
                 </Select>
               </div>
 
-              {/* Subcategory Filter */}
+              {/* Subcategory */}
               <div className="mb-6">
                 <label className="block text-sm font-medium mb-2">Subcategory</label>
                 <Select value={selectedSubcategory} onValueChange={setSelectedSubcategory}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {subcategories.map((subcategory) => (
                       <SelectItem key={subcategory} value={subcategory}>
@@ -349,13 +265,11 @@ export default function GalleryClient() {
                 </Select>
               </div>
 
-              {/* Material Filter */}
+              {/* Material */}
               <div className="mb-6">
                 <label className="block text-sm font-medium mb-2">Material</label>
                 <Select value={selectedMaterial} onValueChange={setSelectedMaterial}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {materials.map((material) => (
                       <SelectItem key={material} value={material}>
@@ -366,13 +280,11 @@ export default function GalleryClient() {
                 </Select>
               </div>
 
-              {/* Color Filter */}
+              {/* Color */}
               <div className="mb-6">
                 <label className="block text-sm font-medium mb-2">Color</label>
                 <Select value={selectedColor} onValueChange={setSelectedColor}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {colors.map((color) => (
                       <SelectItem key={color} value={color}>
@@ -390,7 +302,7 @@ export default function GalleryClient() {
                 </label>
                 <Slider
                   value={priceRange}
-                  onValueChange={setPriceRange}
+                  onValueChange={setPriceRange as any}
                   max={200000}
                   min={0}
                   step={5000}
@@ -402,21 +314,17 @@ export default function GalleryClient() {
               <div className="space-y-3">
                 <div className="flex items-center space-x-2">
                   <Checkbox
-  checked={showOnlyInStock}
-  onCheckedChange={handleChecked(setShowOnlyInStock)}
-/>
-                  <label htmlFor="in-stock" className="text-sm">
-                    In Stock Only
-                  </label>
+                    checked={showOnlyInStock}
+                    onCheckedChange={handleChecked(setShowOnlyInStock)}
+                  />
+                  <label className="text-sm">In Stock Only</label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox
-  checked={showOnlySale}
-  onCheckedChange={handleChecked(setShowOnlySale)}
-/>
-                  <label htmlFor="on-sale" className="text-sm">
-                    On Sale Only
-                  </label>
+                    checked={showOnlySale}
+                    onCheckedChange={handleChecked(setShowOnlySale)}
+                  />
+                  <label className="text-sm">On Sale Only</label>
                 </div>
               </div>
             </div>
@@ -442,9 +350,7 @@ export default function GalleryClient() {
 
                 <div className="flex items-center gap-4">
                   <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {sortOptions.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
@@ -476,16 +382,13 @@ export default function GalleryClient() {
               </div>
             </div>
 
-            {/* Products Grid/List */}
             {filteredAndSortedProducts.length === 0 ? (
               <div className="bg-white rounded-lg shadow-md p-12 text-center">
                 <h3 className="text-xl font-semibold mb-2">No products found</h3>
                 <p className="text-gray-600">Try adjusting your filters or search terms.</p>
               </div>
             ) : (
-              <div
-                className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}
-              >
+              <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
                 {filteredAndSortedProducts.map((product) => (
                   <ProductCard key={product.id} product={product} viewMode={viewMode} />
                 ))}
@@ -498,8 +401,7 @@ export default function GalleryClient() {
   )
 }
 
-// Product Card Component
-function ProductCard({ product, viewMode }: { product: any; viewMode: "grid" | "list" }) {
+function ProductCard({ product, viewMode }: { product: Product; viewMode: "grid" | "list" }) {
   const [isHovered, setIsHovered] = useState(false)
 
   const formatPrice = (price: number) => {
@@ -516,7 +418,7 @@ function ProductCard({ product, viewMode }: { product: any; viewMode: "grid" | "
         <div className="flex flex-col sm:flex-row">
           <div className="relative w-full sm:w-48 h-48">
             <Image
-              src={product.image || "/placeholder.svg?height=200&width=200"}
+              src={product.image_url || "/placeholder.svg?height=200&width=200"}
               alt={product.name}
               fill
               className="object-cover"
@@ -550,9 +452,9 @@ function ProductCard({ product, viewMode }: { product: any; viewMode: "grid" | "
                 </div>
               </div>
               <div className="text-right">
-                {product.isSale ? (
+                {product.sale_price ? (
                   <div>
-                    <span className="text-2xl font-bold text-rose-500">{formatPrice(product.salePrice!)}</span>
+                    <span className="text-2xl font-bold text-rose-500">{formatPrice(product.sale_price)}</span>
                     <span className="text-lg text-gray-500 line-through ml-2">{formatPrice(product.price)}</span>
                   </div>
                 ) : (
@@ -583,7 +485,7 @@ function ProductCard({ product, viewMode }: { product: any; viewMode: "grid" | "
     >
       <div className="relative pt-[100%]">
         <Image
-          src={product.image || "/placeholder.svg?height=400&width=400"}
+          src={product.image_url || "/placeholder.svg?height=400&width=400"}
           alt={product.name}
           fill
           className="object-cover transition-transform duration-500 group-hover:scale-105"
@@ -629,9 +531,9 @@ function ProductCard({ product, viewMode }: { product: any; viewMode: "grid" | "
       </CardContent>
       <CardFooter className="p-4 pt-0 flex justify-between items-center">
         <div>
-          {product.isSale ? (
+          {product.sale_price ? (
             <div className="flex items-center gap-2">
-              <span className="text-lg font-bold text-rose-500">{formatPrice(product.salePrice!)}</span>
+              <span className="text-lg font-bold text-rose-500">{formatPrice(product.sale_price)}</span>
               <span className="text-sm text-gray-500 line-through">{formatPrice(product.price)}</span>
             </div>
           ) : (
