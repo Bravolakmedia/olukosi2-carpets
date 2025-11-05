@@ -1,17 +1,41 @@
+// ui/admin-dashboard.tsx
 "use client"
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { BarChart3, Package, ShoppingCart, Users, TrendingUp, AlertCircle, LogOut, Settings, Bell } from "lucide-react"
+import {
+  BarChart3,
+  Package,
+  ShoppingCart,
+  Users,
+  TrendingUp,
+  AlertCircle,
+  LogOut,
+  Settings,
+  Bell,
+} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
+import { supabase } from "@/lib/supabaseClient"
+
+type Order = {
+  id: string
+  customer: string
+  product: string
+  amount: string
+  status: string
+}
+
 export default function AdminDashboard() {
   const router = useRouter()
-  const [adminData, setAdminData] = useState<any>(null)
+  const [adminData, setAdminData] = useState<{ email: string; isAuthenticated: boolean } | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [recentOrders, setRecentOrders] = useState<Order[]>([])
+  const [ordersLoading, setOrdersLoading] = useState(false)
+  const [ordersError, setOrdersError] = useState<string | null>(null)
 
   useEffect(() => {
     // Check authentication
@@ -31,6 +55,30 @@ export default function AdminDashboard() {
     setIsLoading(false)
   }, [router])
 
+  useEffect(() => {
+    const fetchRecentOrders = async () => {
+      setOrdersLoading(true)
+      setOrdersError(null)
+
+      const { data, error } = await supabase
+        .from("orders")
+        .select("id, customer, product, amount, status")
+        .order("created_at", { ascending: false })
+        .limit(5)
+
+      if (error) {
+        console.error("Error fetching recent orders:", error.message)
+        setOrdersError(error.message)
+      } else if (data) {
+        setRecentOrders(data as Order[])
+      }
+
+      setOrdersLoading(false)
+    }
+
+    fetchRecentOrders()
+  }, [])
+
   const handleLogout = () => {
     localStorage.removeItem("adminAuth")
     router.push("/admin-login")
@@ -47,7 +95,7 @@ export default function AdminDashboard() {
     )
   }
 
-  // Sample dashboard data
+  // Sample stats grid (you can replace these values with real API values later)
   const stats = [
     {
       title: "Total Orders",
@@ -83,12 +131,6 @@ export default function AdminDashboard() {
     },
   ]
 
-  const recentOrders = [
-    { id: "OLK-001", customer: "John Doe", product: "Persian Carpet", amount: "₦120,000", status: "Pending" },
-    { id: "OLK-002", customer: "Jane Smith", product: "Modern Rug", amount: "₦65,000", status: "Shipped" },
-    { id: "OLK-003", customer: "Mike Johnson", product: "Door Mat", amount: "₦15,000", status: "Delivered" },
-  ]
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -122,8 +164,7 @@ export default function AdminDashboard() {
         <Alert className="mb-6 bg-blue-50 border-blue-200">
           <AlertCircle className="h-4 w-4 text-blue-600" />
           <AlertDescription className="text-blue-800">
-            This is a demo admin dashboard. In a real application, this would connect to your Supabase backend to
-            display actual business data and management tools.
+            This is a demo admin dashboard. In a real application, this would connect to your Supabase backend to display actual business data and management tools.
           </AlertDescription>
         </Alert>
 
@@ -154,31 +195,40 @@ export default function AdminDashboard() {
               <CardTitle>Recent Orders</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {recentOrders.map((order) => (
-                  <div key={order.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="font-medium">{order.id}</p>
-                      <p className="text-sm text-gray-600">{order.customer}</p>
-                      <p className="text-sm text-gray-600">{order.product}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">{order.amount}</p>
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full ${
-                          order.status === "Delivered"
-                            ? "bg-green-100 text-green-800"
-                            : order.status === "Shipped"
+              {ordersLoading ? (
+                <p>Loading recent orders…</p>
+              ) : ordersError ? (
+                <p className="text-red-600">Error: {ordersError}</p>
+              ) : (
+                <div className="space-y-4">
+                  {recentOrders.map((order) => (
+                    <div
+                      key={order.id}
+                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                    >
+                      <div>
+                        <p className="font-medium">{order.id}</p>
+                        <p className="text-sm text-gray-600">{order.customer}</p>
+                        <p className="text-sm text-gray-600">{order.product}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">{order.amount}</p>
+                        <span
+                          className={`text-xs px-2 py-1 rounded-full ${
+                            order.status === "Delivered"
+                              ? "bg-green-100 text-green-800"
+                              : order.status === "Shipped"
                               ? "bg-blue-100 text-blue-800"
                               : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {order.status}
-                      </span>
+                          }`}
+                        >
+                          {order.status}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -188,19 +238,19 @@ export default function AdminDashboard() {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button className="w-full justify-start" variant="outline">
+              <Button className="w-full justify-start" variant="outline" onClick={() => router.push("/admin/products/new")}>
                 <Package className="h-4 w-4 mr-2" />
                 Add New Product
               </Button>
-              <Button className="w-full justify-start" variant="outline">
+              <Button className="w-full justify-start" variant="outline" onClick={() => router.push("/admin/orders")}>
                 <ShoppingCart className="h-4 w-4 mr-2" />
                 View All Orders
               </Button>
-              <Button className="w-full justify-start" variant="outline">
+              <Button className="w-full justify-start" variant="outline" onClick={() => router.push("/admin/customers")}>
                 <Users className="h-4 w-4 mr-2" />
                 Manage Customers
               </Button>
-              <Button className="w-full justify-start" variant="outline">
+              <Button className="w-full justify-start" variant="outline" onClick={() => router.push("/admin/analytics")}>
                 <BarChart3 className="h-4 w-4 mr-2" />
                 View Analytics
               </Button>

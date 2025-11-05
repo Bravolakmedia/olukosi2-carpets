@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "@/lib/supabaseClient"
+import { supabaseAdmin } from "@/lib/supabaseAdmin"
 import type { Database } from "@/lib/types/database"
 
 type Product = Database["public"]["Tables"]["products"]["Row"]
