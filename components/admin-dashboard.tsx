@@ -23,10 +23,32 @@ import { supabase } from "@/lib/supabaseClient"
 
 type Order = {
   id: string
-  customer: string
-  product: string
-  amount: string
+  order_number: string
+  customer_id: string
+  customer_email: string
+  customer_name: string
   status: string
+  order_items: OrderItem[]
+  total_price: number
+  subtotal: number
+  tax_amount: number
+  shipping_amount: number
+  discount_amount: number
+  product_name: string
+  created_at: string
+}
+
+type OrderItem = {
+  quantity: number
+  unit_price: number
+  total_price: number
+  product: {
+    id: string
+    name: string
+    description: string
+    price: number
+    image_url: string
+  }
 }
 
 export default function AdminDashboard() {
@@ -62,7 +84,7 @@ export default function AdminDashboard() {
 
       const { data, error } = await supabase
         .from("orders")
-        .select("id, customer, product, amount, status")
+        .select("id, order_number, customer_id, customer_email, status, customer_first_name, customer_last_name, subtotal,  tax_amount, shipping_amount, discount_amount, status, created_at, order_items ( quantity, unit_price, total_price, products ( id, name, description, price, image_url ) )  ")
         .order("created_at", { ascending: false })
         .limit(5)
 
@@ -70,7 +92,26 @@ export default function AdminDashboard() {
         console.error("Error fetching recent orders:", error.message)
         setOrdersError(error.message)
       } else if (data) {
-        setRecentOrders(data as Order[])
+    const cleaned = data.map(o => ({
+  id: o.id,
+  customer_name: `${o.customer_first_name} ${o.customer_last_name}`.trim(),
+  status: o.status,
+  order_items: o.order_items?.map(item => ({
+    quantity: item.quantity,
+    unit_price: item.unit_price,
+    total_price: item.total_price,
+    product: {
+      id: item.products[0]?.id,
+      name: item.products[0]?.name,
+      description: item.products[0]?.description,
+      price: item.products[0]?.price,
+      image_url: item.products[0]?.image_url,
+    }
+  })) || []
+}))
+
+
+        setRecentOrders(cleaned as Order[])
       }
 
       setOrdersLoading(false)
@@ -78,6 +119,7 @@ export default function AdminDashboard() {
 
     fetchRecentOrders()
   }, [])
+
 
   const handleLogout = () => {
     localStorage.removeItem("adminAuth")
@@ -164,7 +206,7 @@ export default function AdminDashboard() {
         <Alert className="mb-6 bg-blue-50 border-blue-200">
           <AlertCircle className="h-4 w-4 text-blue-600" />
           <AlertDescription className="text-blue-800">
-            This is a demo admin dashboard. In a real application, this would connect to your Supabase backend to display actual business data and management tools.
+            This is an admin dashboard that connects to Supabase backend to display actual business data and management tools.
           </AlertDescription>
         </Alert>
 
@@ -208,11 +250,11 @@ export default function AdminDashboard() {
                     >
                       <div>
                         <p className="font-medium">{order.id}</p>
-                        <p className="text-sm text-gray-600">{order.customer}</p>
-                        <p className="text-sm text-gray-600">{order.product}</p>
+                        <p className="text-sm text-gray-600">{order.customer_name}</p>
+                        <p className="text-sm text-gray-600">{order.product_name}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium">{order.amount}</p>
+                        <p className="font-medium">{order.total_price}</p>
                         <span
                           className={`text-xs px-2 py-1 rounded-full ${
                             order.status === "Delivered"
