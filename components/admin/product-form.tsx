@@ -18,6 +18,9 @@ interface ProductFormData {
   material: string
   color: string
   size: string
+  slug?: string
+  short_description?: string
+  image_url: string
   // If `initialData` has more keys, add them here too.
 }
 
@@ -37,17 +40,46 @@ export default function ProductForm({ onSubmit, initialData, loading }: ProductF
   material: initialData?.material || "",
   color: initialData?.color || "",
   size: initialData?.size || "",
+  slug: initialData?.slug,
+  short_description: initialData?.short_description,
+  image_url: initialData?.image_url || "",
   ...initialData
 })
 
+const generateSlug = (text: string) => {
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9\-]/g, "")
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    const slug = formData.slug ?? generateSlug(formData.name)
+    const short_description = formData.short_description ?? formData.description.substring(0, 100)
     onSubmit({
-      ...formData,
+      name: formData.name,
+      description: formData.description,
+      short_description,
+      slug,
       price: Number.parseFloat(formData.price),
       sale_price: formData.sale_price ? Number.parseFloat(formData.sale_price) : null,
       stock_quantity: Number.parseInt(formData.stock_quantity),
+      material: formData.material,
+      color: formData.color,
+      size: formData.size,   
+      is_active: true,
+      is_featured: false,
+      image_url: "",            // adjust if you support uploads
+      weight: null,
+      dimensions: null,
+      sku: "",
+      features: "",
+      meta_title: "",
+      meta_description: "",
+      created_at: undefined,    // supabase will auto generate if set
+      updated_at: undefined,
     })
   }
 
@@ -120,6 +152,25 @@ export default function ProductForm({ onSubmit, initialData, loading }: ProductF
               <Input id="color" value={formData.color} onChange={(e) => handleChange("color", e.target.value)} />
             </div>
           </div>
+          {/* Short Description */}
+            <div className="md:col-span-2">
+              <Label htmlFor="short_description">Short Description</Label>
+              <Textarea id="short_description"
+                        value={formData.short_description}
+                        onChange={e => handleChange("short_description", e.target.value)}
+                        rows={2} />
+            </div>
+
+            {/* Image URL */}
+            <div className="md:col-span-2">
+              <Label htmlFor="image_url">Image URL</Label>
+              <Input id="image_url"
+                     type="text"
+                     placeholder="https://example.com/image.jpg"
+                     value={formData.image_url}
+                     onChange={e => handleChange("image_url", e.target.value)} />
+            </div>
+
 
           <div>
             <Label htmlFor="description">Description</Label>
