@@ -21,6 +21,7 @@ interface ProductFormData {
   slug?: string
   short_description?: string
   image_url: string
+  category_id: string
   // If `initialData` has more keys, add them here too.
 }
 
@@ -41,6 +42,7 @@ export default function ProductForm({ onSubmit, initialData, loading }: ProductF
   color: initialData?.color || "",
   size: initialData?.size || "",
   slug: initialData?.slug,
+  category_id: initialData?.category_id || "",
   short_description: initialData?.short_description,
   image_url: initialData?.image_url || "",
   ...initialData
@@ -63,6 +65,7 @@ const generateSlug = (text: string) => {
       description: formData.description,
       short_description,
       slug,
+      category_id: formData.category_id,
       price: Number.parseFloat(formData.price),
       sale_price: formData.sale_price ? Number.parseFloat(formData.sale_price) : null,
       stock_quantity: Number.parseInt(formData.stock_quantity),
@@ -103,6 +106,23 @@ const generateSlug = (text: string) => {
               <Label htmlFor="name">Product Name</Label>
               <Input id="name" value={formData.name} onChange={(e) => handleChange("name", e.target.value)} required />
             </div>
+             
+             <div className="md:col-span-2">
+  <Label htmlFor="category_id">Category</Label>
+  <select
+    id="category_id"
+    value={formData.category_id}
+    onChange={(e) => handleChange("category_id", e.target.value)}
+    required
+    className="w-full border rounded px-3 py-2"
+  >
+    <option value="">Select category</option>
+    <option value="01804a96-cf44-4fc4-8a26-eb1f09a76d47">Carpets</option>
+    <option value="18ed2dd9-c8cd-4d3b-a031-f75106ed415a">Mats</option>
+    <option value="a0a6f558-11f5-4cdf-9162-4c9b5d0fef6b">Canopies</option>
+  </select>
+</div>
+
 
             <div>
               <Label htmlFor="price">Price (₦)</Label>
